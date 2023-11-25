@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/* 
+    TODO List:
+    1. 참가신청기간 설정
+    2. 참가신청기간 끝나면 모인 돈 USDT로 swap 후 staking OR ETH 그대로 높은 이자율 주는 곳에다 staking?
+    3. 챌린지를 어떤식으로 인증해야할지
+    4. 챌린지가 끝난 후 상금 분배 방식을 정해야함
+    5. 
+*/
+
 contract ChallengeContract {
     // 챌린지
     struct Challenge {
@@ -29,26 +38,26 @@ contract ChallengeContract {
 
     Challenge[] public challenges;
 
-    event ChallengeCreated(uint challengeId, string challengeName, uint betAmount, address creator);
+    event ChallengeCreated(uint challengeId, string challengeName, uint entryAmount, address creator);
     event ChallengeJoined(uint challengeId, address participant);
     event ChallengeCompleted(uint challengeId, address[] winners);
 
-    function createChallenge(string memory _challengeName, uint _duration, uint _betAmount) public payable {
-        require(_betAmount > 0, "Bet amount should be greater than 0");
-        require(msg.value == _betAmount, "Bet amount should be sent as value with the transaction");
+    function createChallenge(string memory _challengeName, uint _duration, uint _entryAmount) public payable {
+        require(_entryAmount > 0, "Entry amount should be greater than 0");
+        require(msg.value == _entryAmount, "entry amount should be sent as value with the transaction");
 
         challenges.push();
         Challenge storage newChallenge = challenges[challenges.length - 1];
         newChallenge.creator = msg.sender;
         newChallenge.challengeName = _challengeName;
-        newChallenge.entryAmount = _betAmount;
+        newChallenge.entryAmount = _entryAmount;
         newChallenge.creationTime = block.timestamp;
         newChallenge.duration = _duration;
         newChallenge.completed = false;
         newChallenge.winners = new address[](0);
 
         uint challengeId = challenges.length - 1;
-        emit ChallengeCreated(challengeId, _challengeName, _betAmount, msg.sender);
+        emit ChallengeCreated(challengeId, _challengeName, _entryAmount, msg.sender);
 
         // 챌린지가 끝날 때
         emit ChallengeClosureScheduled(challengeId, block.timestamp + _duration);
@@ -62,11 +71,15 @@ contract ChallengeContract {
         closeChallenge(_challengeId);
     }
 
+    // join 할 때, 참가신청기간이 지났는지 확인해야함 -> 수정 예정
     function joinChallenge(uint _challengeId) public payable {
         require(_challengeId < challenges.length, "Invalid challenge ID");
         require(!challenges[_challengeId].completed, "Challenge is already completed");
-        require(msg.value == challenges[_challengeId].entryAmount, "Incorrect bet amount");
+        require(msg.value == challenges[_challengeId].entryAmount, "Incorrect entry amount");
+
+        // -----> 여기 변경해야함 <-----
         challenges[_challengeId].check[msg.sender] = msg.value;
+
         emit ChallengeJoined(_challengeId, msg.sender);
     }
 
@@ -198,6 +211,4 @@ contract ChallengeContract {
         uint256 remainingSeconds = _timestamp - secondsAccountedFor + secondsInDay;
         hour = (remainingSeconds % secondsInDay) / 3600;
     }
-
-
 }
