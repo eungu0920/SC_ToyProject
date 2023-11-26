@@ -7,16 +7,19 @@ pragma solidity ^0.8.0;
     2. 참가신청기간 끝나면 모인 돈 USDT로 swap 후 staking OR ETH 그대로 높은 이자율 주는 곳에다 staking?
     3. 챌린지를 어떤식으로 인증해야할지
     4. 챌린지가 끝난 후 상금 분배 방식을 정해야함
-    5. 
+    5. 챌린지는 신청기간이 끝나면 무조건 진행(1명이여도) -> 만약 최소 인원까지 구현한다면 신청기간 내 참가자가 안모였을 때,
+        지갑으로 돌려주는 방식이 아닌 따로 신청자가 claim해서 가스비를 참가자가 지불하고 되가져가는 방식.
 */
 
 contract ChallengeContract {
-    // 챌린지
+    // 챌린지: creator, name, entry, totalAmount, creation time, application deadline(24hours), duration, isCompleted, winners, numOfParticipant
     struct Challenge {
         address creator;
         string challengeName;
         uint entryAmount;
+        uint totalAmount;
         uint creationTime;
+        uint applicationDeadline;
         uint duration;
         bool completed;
         address[] winners;
@@ -30,6 +33,11 @@ contract ChallengeContract {
         uint id;
         string challengeName;
         uint entryAmount;
+        uint currentTotalAmount;
+        uint appYear;
+        uint appMonth;
+        uint appDay;
+        uint appHour;
         uint year;
         uint month;
         uint day;
@@ -51,7 +59,9 @@ contract ChallengeContract {
         newChallenge.creator = msg.sender;
         newChallenge.challengeName = _challengeName;
         newChallenge.entryAmount = _entryAmount;
+        newChallenge.totalAmount += _entryAmount;
         newChallenge.creationTime = block.timestamp;
+        newChallenge.applicationDeadline = block.timestamp + 86400; // 참가기간은 24시간
         newChallenge.duration = _duration;
         newChallenge.completed = false;
         newChallenge.winners = new address[](0);
@@ -71,11 +81,13 @@ contract ChallengeContract {
         closeChallenge(_challengeId);
     }
 
-    // join 할 때, 참가신청기간이 지났는지 확인해야함 -> 수정 예정
+    // join 할 때, 참가신청기간이 지났는지 확인해야함
     function joinChallenge(uint _challengeId) public payable {
         require(_challengeId < challenges.length, "Invalid challenge ID");
-        require(!challenges[_challengeId].completed, "Challenge is already completed");
+        require(block.timestamp < challenges[_challengeId].applicationDeadline, "The application period has passed.");
         require(msg.value == challenges[_challengeId].entryAmount, "Incorrect entry amount");
+
+        challenges[_challengeId].totalAmount += challenges[_challengeId].entryAmount;
 
         // -----> 여기 변경해야함 <-----
         challenges[_challengeId].check[msg.sender] = msg.value;
@@ -137,10 +149,16 @@ contract ChallengeContract {
         for (uint i = 0; i < challenges.length; i++) {
             if (!challenges[i].completed) {
                 (uint year, uint month, uint day, uint hour) = timestampToDate(challenges[i].creationTime + challenges[i].duration);
+                (uint appYear, uint appMonth, uint appDay, uint appHour) = timestampToDate(challenges[i].applicationDeadline);
                 ongoingChallenges[index] = OngoingChallenge({
                     id: i,
                     challengeName: challenges[i].challengeName,
                     entryAmount: challenges[i].entryAmount,
+                    currentTotalAmount: challenges[i].totalAmount,
+                    appYear: appYear,
+                    appMonth: appMonth,
+                    appDay: appDay,
+                    appHour: appHour,
                     year: year,
                     month: month,
                     day: day,
@@ -153,7 +171,7 @@ contract ChallengeContract {
         return ongoingChallenges;
     }
 
-    // 날짜, 시간 계산 함수
+    // 챌린지 종료 날짜, 시간 계산 함수
     function timestampToDate(uint timestamp) internal pure returns (uint year, uint month, uint day, uint hour) {
         uint256 KST = 9 * 3600; // UTC+9 변환
 
