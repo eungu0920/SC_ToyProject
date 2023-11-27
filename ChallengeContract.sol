@@ -5,12 +5,13 @@ import "./TimestampConversion.sol";
 
 /* 
     TODO List:
-    1. 참가신청기간 설정
+    1. 참가신청기간 설정 [V]
     2. 참가신청기간 끝나면 모인 돈 USDT로 swap 후 staking OR ETH 그대로 높은 이자율 주는 곳에다 staking?
     3. 챌린지를 어떤식으로 인증해야할지
     4. 챌린지가 끝난 후 상금 분배 방식을 정해야함
     5. 챌린지는 신청기간이 끝나면 무조건 진행(1명이여도) -> 만약 최소 인원까지 구현한다면 신청기간 내 참가자가 안모였을 때,
         지갑으로 돌려주는 방식이 아닌 따로 신청자가 claim해서 가스비를 참가자가 지불하고 되가져가는 방식.
+    6. 
 */
 
 contract ChallengeContract {
@@ -22,29 +23,25 @@ contract ChallengeContract {
         uint entryAmount;
         uint totalAmount;
         uint creationTime;
-        uint applicationDeadline;
+        uint applicationDeadline; // and start time
         uint duration;
         bool completed;
         address[] winners;
 
         // 아침에 일어나는 챌린지라면 아침에 체크하는식으로?
         mapping(address => uint) check;
+        mapping(address => bool) participate;
     }
 
     // 현재 진행중인 챌린지를 보여주기 위해서 따로 구조체를 만들었음, Challenge 구조체안에 mapping 때문에 Challenge 구조체를 반환할 수 없어서 따로 만들었음.
+    // Challenge id, name, entry amount, total amount, application deadline date, due date, number of participants
     struct OngoingChallenge {
         uint id;
         string challengeName;
         uint entryAmount;
         uint currentTotalAmount;
-        uint appYear;
-        uint appMonth;
-        uint appDay;
-        uint appHour;
-        uint year;
-        uint month;
-        uint day;
-        uint hour;
+        uint[4] appDeadline; // year, month, day, hour
+        uint[4] dueDate; // same as above
     }
 
     Challenge[] public challenges;
@@ -68,19 +65,20 @@ contract ChallengeContract {
         newChallenge.duration = _duration;
         newChallenge.completed = false;
         newChallenge.winners = new address[](0);
+        newChallenge.participate[msg.sender] = true;
 
         uint challengeId = challenges.length - 1;
         emit ChallengeCreated(challengeId, _challengeName, _entryAmount, msg.sender);
 
-        // 챌린지가 끝날 때
-        emit ChallengeClosureScheduled(challengeId, block.timestamp + _duration);
+        // 챌린지가 끝날 때, 신청마감 후 바로 시작
+        emit ChallengeClosureScheduled(challengeId, newChallenge.applicationDeadline + _duration);
     }
 
     event ChallengeClosureScheduled(uint challengeId, uint closureTime);
 
     // 챌린지가 끝나면 자동으로 끝나게 만들라 하는데 나중에 다시 수정해야 할 것 같음...
     function automaticallyCloseChallenge(uint _challengeId) public {
-        require(block.timestamp >= challenges[_challengeId].creationTime + challenges[_challengeId].duration, "Challenge duration not over yet");
+        require(block.timestamp >= challenges[_challengeId].applicationDeadline + challenges[_challengeId].duration, "Challenge duration not over yet");
         closeChallenge(_challengeId);
     }
 
@@ -88,6 +86,7 @@ contract ChallengeContract {
     function joinChallenge(uint _challengeId) public payable {
         require(_challengeId < challenges.length, "Invalid challenge ID");
         require(block.timestamp < challenges[_challengeId].applicationDeadline, "The application period has passed.");
+        require(challenges[_challengeId].participate[msg.sender] = false, "You've already joined.");
         require(msg.value == challenges[_challengeId].entryAmount, "Incorrect entry amount");
 
         challenges[_challengeId].totalAmount += challenges[_challengeId].entryAmount;
@@ -150,21 +149,15 @@ contract ChallengeContract {
         // 현재 진행 중인 챌린지 정보를 배열에 저장
         for (uint i = 0; i < challenges.length; i++) {
             if (!challenges[i].completed) {
-                (uint year, uint month, uint day, uint hour) = (challenges[i].creationTime + challenges[i].duration).timestampToDate();
+                (uint year, uint month, uint day, uint hour) = (challenges[i].applicationDeadline + challenges[i].duration).timestampToDate();
                 (uint appYear, uint appMonth, uint appDay, uint appHour) = challenges[i].applicationDeadline.timestampToDate();
                 ongoingChallenges[index] = OngoingChallenge({
                     id: i,
                     challengeName: challenges[i].challengeName,
                     entryAmount: challenges[i].entryAmount,
                     currentTotalAmount: challenges[i].totalAmount,
-                    appYear: appYear,
-                    appMonth: appMonth,
-                    appDay: appDay,
-                    appHour: appHour,
-                    year: year,
-                    month: month,
-                    day: day,
-                    hour: hour
+                    appDeadline: [appYear, appMonth, appDay, appHour],
+                    dueDate: [year, month, day, hour]
                 });
                 index++;
             }
