@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "./TimestampConversion.sol";
+
 /* 
     TODO List:
     1. 참가신청기간 설정
@@ -12,6 +14,7 @@ pragma solidity ^0.8.0;
 */
 
 contract ChallengeContract {
+    using TimestampConversion for uint;
     // 챌린지: creator, name, entry, totalAmount, creation time, application deadline(24hours), duration, isCompleted, winners, numOfParticipant
     struct Challenge {
         address creator;
@@ -130,7 +133,6 @@ contract ChallengeContract {
         return challenges.length;
     }
 
-
     // TODO: 현재 진행중인 챌린지만 반환, challengeName, entry amount, deadlines, number of current participants(?), total amount(?), etc
     function getCurrentChallenges() public view returns (OngoingChallenge[] memory) {
         uint ongoingCount = 0;
@@ -148,8 +150,8 @@ contract ChallengeContract {
         // 현재 진행 중인 챌린지 정보를 배열에 저장
         for (uint i = 0; i < challenges.length; i++) {
             if (!challenges[i].completed) {
-                (uint year, uint month, uint day, uint hour) = timestampToDate(challenges[i].creationTime + challenges[i].duration);
-                (uint appYear, uint appMonth, uint appDay, uint appHour) = timestampToDate(challenges[i].applicationDeadline);
+                (uint year, uint month, uint day, uint hour) = challenges[i].creationTime + challenges[i].duration.timestampToDate();
+                (uint appYear, uint appMonth, uint appDay, uint appHour) = challenges[i].applicationDeadline.timestampToDate();
                 ongoingChallenges[index] = OngoingChallenge({
                     id: i,
                     challengeName: challenges[i].challengeName,
@@ -169,64 +171,5 @@ contract ChallengeContract {
         }
 
         return ongoingChallenges;
-    }
-
-    // 챌린지 종료 날짜, 시간 계산 함수
-    function timestampToDate(uint timestamp) internal pure returns (uint year, uint month, uint day, uint hour) {
-        uint256 KST = 9 * 3600; // UTC+9 변환
-
-        uint256 _timestamp = timestamp + KST; // 한국 시간으로 변환
-
-        uint256 secondsInDay = 86400;
-        uint256 secondsInYear = 31536000;
-        uint256 secondsInLeapYear = 31622400;
-
-        uint256 epochYear = 1970;
-
-        // 년 계산
-        uint256 secondsAccountedFor = 0;
-        uint256 numLeapYears = 0;
-        while (secondsAccountedFor + secondsInYear <= _timestamp) {
-            if ((epochYear % 4 == 0) && ((epochYear % 100 != 0) || (epochYear % 400 == 0))) {
-                secondsAccountedFor += secondsInLeapYear;
-                numLeapYears++;
-            } else {
-                secondsAccountedFor += secondsInYear;
-            }
-            epochYear++;
-        }
-        year = epochYear;
-
-        // Day 계산
-        uint8[12] memory daysPerMonth = [
-            uint8(31), uint8(28), uint8(31),
-            uint8(30), uint8(31), uint8(30),
-            uint8(31), uint8(31), uint8(30),
-            uint8(31), uint8(30), uint8(31)
-        ];
-
-        uint256 monthCounter = 0;
-        while (true) {
-            uint256 daysUntilMonth = 0;
-            if (monthCounter == 12) {
-                break;
-            }
-
-            daysUntilMonth += uint256(daysPerMonth[monthCounter]) * secondsInDay;
-            if (_timestamp < secondsAccountedFor + daysUntilMonth) {
-                break;
-            }
-
-            secondsAccountedFor += daysUntilMonth;
-            monthCounter++;
-        }
-        month = monthCounter + 1;
-
-        // day 계산
-        day = (_timestamp - secondsAccountedFor) / secondsInDay + 1;
-
-        // hour 계산
-        uint256 remainingSeconds = _timestamp - secondsAccountedFor + secondsInDay;
-        hour = (remainingSeconds % secondsInDay) / 3600;
     }
 }
