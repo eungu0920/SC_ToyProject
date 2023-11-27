@@ -150,7 +150,7 @@ contract ChallengeContract {
         // 현재 진행 중인 챌린지 정보를 배열에 저장
         for (uint i = 0; i < challenges.length; i++) {
             if (!challenges[i].completed) {
-                (uint year, uint month, uint day, uint hour) = challenges[i].creationTime + challenges[i].duration.timestampToDate();
+                (uint year, uint month, uint day, uint hour) = (challenges[i].creationTime + challenges[i].duration).timestampToDate();
                 (uint appYear, uint appMonth, uint appDay, uint appHour) = challenges[i].applicationDeadline.timestampToDate();
                 ongoingChallenges[index] = OngoingChallenge({
                     id: i,
