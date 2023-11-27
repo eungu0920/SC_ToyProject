@@ -86,9 +86,10 @@ contract ChallengeContract {
     function joinChallenge(uint _challengeId) public payable {
         require(_challengeId < challenges.length, "Invalid challenge ID");
         require(block.timestamp < challenges[_challengeId].applicationDeadline, "The application period has passed.");
-        require(challenges[_challengeId].participate[msg.sender] = false, "You've already joined.");
+        require(challenges[_challengeId].participate[msg.sender] == false, "You've already joined.");
         require(msg.value == challenges[_challengeId].entryAmount, "Incorrect entry amount");
 
+        challenges[_challengeId].participate[msg.sender] = true;
         challenges[_challengeId].totalAmount += challenges[_challengeId].entryAmount;
 
         // -----> 여기 변경해야함 <-----
