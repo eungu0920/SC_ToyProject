@@ -35,6 +35,7 @@ contract ChallengeContract {
 
         // 아침에 일어나는 챌린지라면 아침에 체크하는식으로?
         mapping(address => uint) check;
+        mapping(address => uint) lastCheck;
         mapping(address => bool) participate;
         mapping(address => bool) claimed;
     }
@@ -169,16 +170,18 @@ contract ChallengeContract {
         return block.timestamp.timestampToDate();
     }
 
-    // 아침 6시에서 6시 5분 안에 함수를 실행시켜야함. => 끝나기 전까지 매일 해야하는데 지금 코드에서는 6시에서 6시 5분 사이에만 있으면 계속 함수를 실행시킬 수 있음.
-    // 
+    // 아침 6시에서 6시 5분 안에 함수를 실행시켜야함.
+    // lastCheck를 통해서 하루에 한번만 체크를 할 수 있음.
     function wakeUpCheck(uint _challengeId) public validChallengeId(_challengeId) {
         require(challenges[_challengeId].participate[msg.sender] == true, "You're not a participant of this challenge.");
+        (uint lastYear, uint lastMonth, uint lastDay,,) = challenges[_challengeId].lastCheck[msg.sender].timestampToDate();
+        (uint currentYear, uint currentMonth, uint currentDay, uint currentHour, uint currentMinute) = block.timestamp.timestampToDate();
 
-        (,,, uint currentHour, uint currentMinute) = block.timestamp.timestampToDate();
-
+        require(currentYear > lastYear || currentMonth > lastMonth || currentDay > lastDay, "You've already checked today.");
         require(currentHour == 6 && currentMinute <= 5, "You've failed today's mission.");
 
         challenges[_challengeId].check[msg.sender]++;
+        challenges[_challengeId].lastCheck[msg.sender] = block.timestamp;
     }
 
     // 상금 클레임
