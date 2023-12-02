@@ -7,40 +7,57 @@ import "./TimestampConversion.sol";
     TODO List:
     1. 참가신청기간 설정 / 언제 create되던, 다음날 오후9시 신청 마감 [V]
     2. 참가신청기간 끝나면 모인 돈 USDT로 swap 후 staking OR ETH 그대로 높은 이자율 주는 곳에다 staking?
-    3. 챌린지를 어떤식으로 인증해야할지 -> 일단 아침 기상 챌린지로 -> 6AM ~ 6:05AM 안에 기상 인증 체크
-    4. 챌린지가 끝난 후 상금 분배 방식을 정해야함 -> 리워드 분배 함수
+        - USDT staking 하는 곳을 찾기 어려움.
+        - USDT와 ETH로 나눠서 유동성 공급?
+    3. 챌린지를 어떤식으로 인증해야할지 -> 일단 아침 기상 챌린지로 -> 6AM ~ 6:05AM 안에 기상 인증 체크 [V]
+    4. 챌린지가 끝난 후 상금 분배 방식을 정해야함 -> 리워드 분배 함수 [V]
     5. 챌린지는 신청기간이 끝나면 무조건 진행(1명이여도) -> 만약 최소 인원까지 구현한다면 신청기간 내 참가자가 안모였을 때,
-        지갑으로 돌려주는 방식이 아닌 따로 신청자가 claim해서 가스비를 참가자가 지불하고 되가져가는 방식.
+        지갑으로 돌려주는 방식이 아닌 따로 신청자가 claim해서 가스비를 참가자가 지불하고 되가져가는 방식. [V]
     6. 
 */
 
+/**
+ * @title A Challenge Dapp for people
+ * @author Gray Choi (eungu0920@korea.ac.kr)
+ * @notice Implement functionality for registering challenges, verifying participants, and distributing rewards.
+ * @dev This contract is not exactly complete yet. don't use this
+ */
+
 contract ChallengeContract {
     using TimestampConversion for uint;
-    // 챌린지: creator, name, entry, totalAmount, creation time, application deadline(24hours), duration, isCompleted, winners, numOfParticipant
+    /**
+     * @notice Challenge 구조체
+     * @param totalAmount 참가자 수 * entryAmount          
+     * @param completed Challenge가 끝났는지 확인하는 변수
+     * @param applicationDeadline 참가 신청기간이며 Challenge가 생성되고 난 후, 다음날 오후 9시까지 신청이 가능함.
+     * @param numOfWakeUpCheckToWin Challenge에서 이기기 위한 달성 횟수
+     * @param numOfWinners Challenge의 전체 winner 수, Challenge의 마지막 날 numOfWakeUpCheckToWin와 비교하여 갱신
+     * @param check 지갑주소 별 미션체크 변수
+     * @param lastCheck 마지막으로 아침 미션을 달성한 시간
+     * @param claimed 상금을 클레임 하였는지 확인하기 위한 변수
+     */
     struct Challenge {
         address creator;
         string challengeName;
         uint entryAmount;
         uint totalAmount;
         uint creationTime;
-        uint applicationDeadline; // and start time
+        uint applicationDeadline;
         uint duration;
         bool completed;
-
         uint numOfWakeUpCheckToWin;
-
-        // 마지막 check 때 numOfWinners도 같이 갱신해서 이 변수로 total reward를 나눠주려고함.
         uint numOfWinners;
-
-        // 아침에 일어나는 챌린지라면 아침에 체크하는식으로?
+        
         mapping(address => uint) check;
         mapping(address => uint) lastCheck;
         mapping(address => bool) participate;
         mapping(address => bool) claimed;
     }
 
-    // 현재 진행중인 챌린지를 보여주기 위해서 따로 구조체를 만들었음, Challenge 구조체안에 mapping 때문에 Challenge 구조체를 반환할 수 없어서 따로 만들었음.
-    // Challenge id, name, entry amount, total amount, application deadline date, due date, number of participants
+    /**
+     * @notice 현재 진행중인 Challenge를 보여주기 위한 구조체
+     * @param id 
+     */
     struct OngoingChallenge {
         uint id;
         string challengeName;
@@ -175,8 +192,10 @@ contract ChallengeContract {
         return ongoingChallenges;
     }
 
-    // 아침 6시에서 6시 5분 안에 함수를 실행시켜야함.
-    // lastCheck를 통해서 하루에 한번만 체크를 할 수 있음.
+    /**
+     * @notice 기상 체크하는 함수 (6AM ~ 6:05AM)
+     * @custom:todo 자동으로 실행 시킬 수 있기 때문에 다른 방식으로 변경해야함
+     */
     function wakeUpCheck(uint _challengeId) public validChallengeIdWithCompleted(_challengeId) {
         require(challenges[_challengeId].participate[msg.sender], "You're not a participant of this challenge.");
         (uint lastYear, uint lastMonth, uint lastDay,,) = challenges[_challengeId].lastCheck[msg.sender].timestampToDate();
@@ -193,9 +212,12 @@ contract ChallengeContract {
         }
     }
 
-    // 상금 클레임
+    /**
+     * @notice 상금을 클레임하는 함수
+     */
     function claimRewards(uint _challengeId) public validChallengeId(_challengeId) {
         require(challenges[_challengeId].completed, "Challenge isn't completed yet.");
+        require(challenges[_challengeId].participate[msg.sender], "You're not a participant of this challenge.");
         require(!challenges[_challengeId].claimed[msg.sender], "Already claimed");
         require(challenges[_challengeId].check[msg.sender] == challenges[_challengeId].numOfWakeUpCheckToWin, "You didn't win this challenge.");
 
