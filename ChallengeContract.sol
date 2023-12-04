@@ -23,7 +23,19 @@ import "./TimestampConversion.sol";
  * @dev This contract is not exactly complete yet. don't use this
  */
 
+ interface ERC20 {
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+}
+
 contract ChallengeContract {
+    ERC20 public token;
+
+    constructor(address _tokenAddress) {
+        token = ERC20(_tokenAddress);
+    }
+
     using TimestampConversion for uint;
     /**
      * @notice Challenge 구조체
@@ -86,6 +98,9 @@ contract ChallengeContract {
         _;
     }
 
+    /**
+     * @notice 챌린지 이름과 챌린지 기간, 참가비용을 매개변수로 받음
+     */
     function createChallenge(string memory _challengeName, uint _duration, uint _entryAmount) public payable {
         require(_entryAmount > 0, "Entry amount should be greater than 0");
         require(msg.value == _entryAmount, "entry amount should be sent as value with the transaction");
@@ -106,15 +121,19 @@ contract ChallengeContract {
         uint challengeId = challenges.length - 1;
         emit ChallengeCreated(challengeId, _challengeName, _entryAmount, msg.sender);
         emit ChallengeClosureScheduled(challengeId, newChallenge.applicationDeadline + _duration);
-    }    
+    }
 
-    // 챌린지가 끝나면 자동으로 끝나게 만들라 하는데 나중에 다시 수정해야 할 것 같음...
+    /**
+     * @notice
+     */
     function automaticallyCloseChallenge(uint _challengeId) public {
         require(block.timestamp >= challenges[_challengeId].applicationDeadline + challenges[_challengeId].duration, "Challenge duration not over yet");
         _closeChallenge(_challengeId);
     }
 
-    // join 할 때, 참가신청기간이 지났는지 확인해야함, 참가신청기간은 다음날 오후 9시 전까지만
+    /**
+     * @notice 참가신청기간은 만들어진 다음날 오후 9시까지.
+     */
     function joinChallenge(uint _challengeId) public payable validChallengeIdWithCompleted(_challengeId) {
         (uint appYear, uint appMonth, uint appDay,,) = challenges[_challengeId].applicationDeadline.timestampToDate();
         (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();
@@ -130,6 +149,9 @@ contract ChallengeContract {
     }
 
     // 챌린지 종료, 굳이 creator가 종료 하는 것이아니라 자동으로 되게 할 방법을 생각해봐야함.
+    /**
+     * @notice 챌린지는 오후 9시에 마감
+     */
     function _closeChallenge(uint _challengeId) internal validChallengeIdWithCompleted(_challengeId) {
         require(challenges[_challengeId].creator == msg.sender, "Only the challenge creator can close it");        
 
@@ -153,12 +175,16 @@ contract ChallengeContract {
         emit ChallengeCompleted(_challengeId);
     }
 
-    // 현재 진행중인 챌린지를 반환하는 함수가 있어서 삭제해도 될 듯?
+    /**
+     * @notice 현 진행중인 챌린지를 반환하는 함수가 있어서 삭제해도 될 것 같음.
+     */
     function getChallengeCount() public view returns (uint) {
         return challenges.length;
     }
 
-    // TODO: 현재 진행중인 챌린지만 반환, challengeName, entry amount, deadlines, number of current participants(?), total amount(?), etc
+    /**
+     * @notice 현재 진행중인 챌린지만 반환하는 함수이며, 참가 신청이 가능한 챌린지만 반환하는 방식으로 수정할 예정
+     */
     function getCurrentChallenges() public view returns (OngoingChallenge[] memory) {
         uint ongoingCount = 0;
         // 현재 진행 중인 챌린지 수 계산
