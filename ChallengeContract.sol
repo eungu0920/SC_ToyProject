@@ -3,19 +3,6 @@ pragma solidity ^0.8.0;
 
 import "./TimestampConversion.sol";
 
-/* 
-    TODO List:
-    1. 참가신청기간 설정 / 언제 create되던, 다음날 오후9시 신청 마감 [V]
-    2. 참가신청기간 끝나면 모인 돈 USDT로 swap 후 staking OR ETH 그대로 높은 이자율 주는 곳에다 staking?
-        - USDT staking 하는 곳을 찾기 어려움.
-        - USDT와 ETH로 나눠서 유동성 공급?
-    3. 챌린지를 어떤식으로 인증해야할지 -> 일단 아침 기상 챌린지로 -> 6AM ~ 6:05AM 안에 기상 인증 체크 [V]
-    4. 챌린지가 끝난 후 상금 분배 방식을 정해야함 -> 리워드 분배 함수 [V]
-    5. 챌린지는 신청기간이 끝나면 무조건 진행(1명이여도) -> 만약 최소 인원까지 구현한다면 신청기간 내 참가자가 안모였을 때,
-        지갑으로 돌려주는 방식이 아닌 따로 신청자가 claim해서 가스비를 참가자가 지불하고 되가져가는 방식. [V]
-    6. 
-*/
-
 /**
  * @title A Challenge Dapp for people
  * @author Gray Choi (eungu0920@korea.ac.kr)
@@ -27,16 +14,17 @@ import "./TimestampConversion.sol";
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function approve(address spender, uint256 amount) external returns (bool);
     function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
 }
 
 contract ChallengeContract {
+    using TimestampConversion for uint;
+
     ERC20 public token;
 
     constructor(address _tokenAddress) {
         token = ERC20(_tokenAddress);
     }
-
-    using TimestampConversion for uint;
     /**
      * @notice Challenge 구조체
      * @param totalAmount 참가자 수 * entryAmount          
@@ -101,9 +89,10 @@ contract ChallengeContract {
     /**
      * @notice 챌린지 이름과 챌린지 기간, 참가비용을 매개변수로 받음
      */
-    function createChallenge(string memory _challengeName, uint _duration, uint _entryAmount) public payable {
+    function createChallenge(string memory _challengeName, uint _duration, uint _entryAmount) public {
         require(_entryAmount > 0, "Entry amount should be greater than 0");
-        require(msg.value == _entryAmount, "entry amount should be sent as value with the transaction");
+        require(token.approve(address(this), _entryAmount), "Failed to approve tokens for transfer");
+        require(token.transferFrom(msg.sender, address(this), _entryAmount), "Failed to transfer tokens");
 
         challenges.push();
         Challenge storage newChallenge = challenges[challenges.length - 1];
@@ -134,45 +123,20 @@ contract ChallengeContract {
     /**
      * @notice 참가신청기간은 만들어진 다음날 오후 9시까지.
      */
-    function joinChallenge(uint _challengeId) public payable validChallengeIdWithCompleted(_challengeId) {
+    function joinChallenge(uint _challengeId) public validChallengeIdWithCompleted(_challengeId) {
         (uint appYear, uint appMonth, uint appDay,,) = challenges[_challengeId].applicationDeadline.timestampToDate();
         (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();
 
         require(crrYear < appYear || crrMonth < appMonth || crrDay < appDay || crrHour < 21, "The application period has expired."); // 오후 21시 전 이면 신청 가능
         require(!challenges[_challengeId].participate[msg.sender], "You've already joined.");
-        require(msg.value == challenges[_challengeId].entryAmount, "Incorrect entry amount");
+        require(token.balanceOf(msg.sender) >= challenges[_challengeId].entryAmount, "Insufficient entry amount");
+
+        require(token.approve(address(this), challenges[_challengeId].entryAmount), "Failed to approve tokens for transfer");
+        require(token.transferFrom(msg.sender, address(this), challenges[_challengeId].entryAmount), "Failed to transfer tokens");
 
         emit ChallengeJoined(_challengeId, msg.sender);
         challenges[_challengeId].participate[msg.sender] = true;
         challenges[_challengeId].totalAmount += challenges[_challengeId].entryAmount;
-
-    }
-
-    // 챌린지 종료, 굳이 creator가 종료 하는 것이아니라 자동으로 되게 할 방법을 생각해봐야함.
-    /**
-     * @notice 챌린지는 오후 9시에 마감
-     */
-    function _closeChallenge(uint _challengeId) internal validChallengeIdWithCompleted(_challengeId) {
-        require(challenges[_challengeId].creator == msg.sender, "Only the challenge creator can close it");        
-
-        uint closeTime = challenges[_challengeId].applicationDeadline + challenges[_challengeId].duration;
-
-        (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();        
-        (uint closeYear, uint closeMonth, uint closeDay,,) = closeTime.timestampToDate();
-
-        // 챌린지가 안끝났을 때.
-        require(crrYear > closeYear || crrMonth > closeMonth || crrDay > closeDay || crrHour >= 21, "Challenge duration not over yet.");
-
-        /*
-        챌린지가 끝나고 winner를 뽑을 때,
-        챌린지가 7일동안 진행된 경우 7일을 모두 체크한 사람이 winners list에 들어감.
-        for문 두 번 반복할 필요 없이 한번만 사용하고 챌린지를 모두 참여 완료한 사람만 상금을 분배하는 방식으로 진행.
-        즉 하루만 실패해도 상금이 날라감(아니면 리워드 분배방식을 달성 퍼센트별로 설정해야하는데 이거는 지금하기 어려울 것이라고 생각됨)
-        => close 될 때, winners를 뽑는게 아닌 매번 체크해서 
-        */
-
-        challenges[_challengeId].completed = true;
-        emit ChallengeCompleted(_challengeId);
     }
 
     /**
@@ -249,10 +213,36 @@ contract ChallengeContract {
 
         uint distributeRewards = challenges[_challengeId].totalAmount / challenges[_challengeId].numOfWinners;
 
+        require(token.transfer(msg.sender, distributeRewards), "Reward claim failed.");
         challenges[_challengeId].claimed[msg.sender] = true;
-        payable(msg.sender).transfer(distributeRewards);
 
         emit ChallengeRewardClaimed(_challengeId, msg.sender);
+    }
+
+    /**
+     * @notice 챌린지는 오후 9시에 마감
+     */
+    function _closeChallenge(uint _challengeId) internal validChallengeIdWithCompleted(_challengeId) {
+        require(challenges[_challengeId].creator == msg.sender, "Only the challenge creator can close it");        
+
+        uint closeTime = challenges[_challengeId].applicationDeadline + challenges[_challengeId].duration;
+
+        (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();        
+        (uint closeYear, uint closeMonth, uint closeDay,,) = closeTime.timestampToDate();
+
+        // 챌린지가 안끝났을 때.
+        require(crrYear > closeYear || crrMonth > closeMonth || crrDay > closeDay || crrHour >= 21, "Challenge duration not over yet.");
+
+        /*
+        챌린지가 끝나고 winner를 뽑을 때,
+        챌린지가 7일동안 진행된 경우 7일을 모두 체크한 사람이 winners list에 들어감.
+        for문 두 번 반복할 필요 없이 한번만 사용하고 챌린지를 모두 참여 완료한 사람만 상금을 분배하는 방식으로 진행.
+        즉 하루만 실패해도 상금이 날라감(아니면 리워드 분배방식을 달성 퍼센트별로 설정해야하는데 이거는 지금하기 어려울 것이라고 생각됨)
+        => close 될 때, winners를 뽑는게 아닌 매번 체크해서 
+        */
+
+        challenges[_challengeId].completed = true;
+        emit ChallengeCompleted(_challengeId);
     }
 
 }
