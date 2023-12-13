@@ -104,8 +104,33 @@ contract ChallengeContract {
         require(success, "External call failed");
     }
 
+    /**
+     * @notice 언스테이킹(기간7일?)
+     * 1000000000000000000000000000(1) 10^27
+     */
     function unstakingChallengeAmount(uint256 _value) internal {
-        
+        address depositManager = 0x0e1EF78939F9d3340e63A7a1077d50999CC6B64f;
+        address layer2 = 0x1f4aEf3A04372cF9D738d5459F31950A53969cA3;
+
+        (bool success,) = depositManager.call(
+            abi.encodeWithSignature("requestWithdrawal(address, uint256)", layer2, _value)
+        );
+
+        require(success, "External call failed");
+    }
+
+    /**
+     * @notice 스테이킹 withdrawal, _value 만큼 인출, true는 WTON말고 TON으로 받음
+     */
+    function withdrawal(uint _value) internal {
+        address depositManager = 0x0e1EF78939F9d3340e63A7a1077d50999CC6B64f;
+        address layer2 = 0x1f4aEf3A04372cF9D738d5459F31950A53969cA3;
+
+        (bool success,) = depositManager.call(
+            abi.encodeWithSignature("processRequests(address, uint256, bool)", layer2, _value, true)
+        );
+
+        require(success, "External call failed");
     }
 
     /**
@@ -141,6 +166,14 @@ contract ChallengeContract {
         require(block.timestamp >= challenges[_challengeId].applicationDeadline + challenges[_challengeId].duration, "Challenge duration not over yet");
         _closeChallenge(_challengeId);
     }
+
+    /**
+     * @notice 챌린지 신청 마감, reward 스테이킹
+     */
+    function startChallenge() public {
+        
+    }
+
 
     /**
      * @notice 참가신청기간은 만들어진 다음날 오후 9시까지.
