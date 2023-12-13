@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/**
+ * @title timestamp를 한국 시간으로 변경해주는 라이브러리 입니다.
+ * @author Gray Choi (eungu0920@korea.ac.kr)
+ */
 library TimestampConversion {
-    // 챌린지 종료 및 참가 신청기간의 날짜, 시간 계산 함수
+    
     function timestampToDate(uint timestamp) internal pure returns (uint year, uint month, uint day, uint hour, uint minute) {
         uint256 KST = 9 * 3600; // UTC+9 변환
 

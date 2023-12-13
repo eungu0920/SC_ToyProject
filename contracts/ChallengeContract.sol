@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./TimestampConversion.sol";
+import "./StakingLibrary.sol";
 
 /**
  * @title A Challenge Dapp for people
@@ -18,7 +19,9 @@ import "./TimestampConversion.sol";
 }
 
 contract ChallengeContract {
+    using StakingLibrary for uint256;
     using TimestampConversion for uint;
+
 
     ERC20 public token;
 
@@ -87,53 +90,6 @@ contract ChallengeContract {
     }
 
     /**
-     * @notice 챌린지의 totalAmount를 _value로 받아서 스테이킹
-     */
-    function stakingChallengeAmount(uint256 _value) internal {
-        address contractAddress = 0x68c1F9620aeC7F2913430aD6daC1bb16D8444F00;
-        address spender = 0xe86fCf5213C785AcF9a8BFfEeDEfA9a2199f7Da6;
-        address depositManager = 0x0e1EF78939F9d3340e63A7a1077d50999CC6B64f;
-        address layer2 = 0x1f4aEf3A04372cF9D738d5459F31950A53969cA3;
-
-        bytes memory _data = abi.encode(depositManager, layer2);
-
-        (bool success,) = contractAddress.call(
-            abi.encodeWithSignature("approveAndCall(address, uint256, bytes)", spender, _value, _data)
-        );
-
-        require(success, "External call failed");
-    }
-
-    /**
-     * @notice 언스테이킹(기간7일?)
-     * 1000000000000000000000000000(1) 10^27
-     */
-    function unstakingChallengeAmount(uint256 _value) internal {
-        address depositManager = 0x0e1EF78939F9d3340e63A7a1077d50999CC6B64f;
-        address layer2 = 0x1f4aEf3A04372cF9D738d5459F31950A53969cA3;
-
-        (bool success,) = depositManager.call(
-            abi.encodeWithSignature("requestWithdrawal(address, uint256)", layer2, _value)
-        );
-
-        require(success, "External call failed");
-    }
-
-    /**
-     * @notice 스테이킹 withdrawal, _value 만큼 인출, true는 WTON말고 TON으로 받음
-     */
-    function withdrawal(uint _value) internal {
-        address depositManager = 0x0e1EF78939F9d3340e63A7a1077d50999CC6B64f;
-        address layer2 = 0x1f4aEf3A04372cF9D738d5459F31950A53969cA3;
-
-        (bool success,) = depositManager.call(
-            abi.encodeWithSignature("processRequests(address, uint256, bool)", layer2, _value, true)
-        );
-
-        require(success, "External call failed");
-    }
-
-    /**
      * @notice 챌린지 이름과 챌린지 기간, 참가비용을 매개변수로 받음
      */
     function createChallenge(string memory _challengeName, uint _duration, uint _entryAmount) public {
@@ -176,7 +132,7 @@ contract ChallengeContract {
 
         require(crrYear > appYear || crrMonth > appMonth || crrDay > appDay || crrHour > 21, "The application period has expired."); // 신청기간 마감 이후 실행
 
-        stakingChallengeAmount(challenges[_challengeId].totalAmount);
+        challenges[_challengeId].totalAmount.stakingChallengeAmount();
     }
 
 
@@ -279,12 +235,11 @@ contract ChallengeContract {
         emit ChallengeRewardClaimed(_challengeId, msg.sender);
     }
 
-
     /**
      * @notice 챌린지가 끝날 때, unstaking 신청을 한 후, 기간이 지난 후에 unstaking 신청한 물량을 받아옴.
      */
     function withdrawalReward(uint _challengeId) public {
-        withdrawal(challenges[_challengeId].totalAmount);
+        challenges[_challengeId].totalAmount.withdrawal();
     }
 
     /**
@@ -309,10 +264,11 @@ contract ChallengeContract {
         => close 될 때, winners를 뽑는게 아닌 매번 체크
         */
 
-        unstakingChallengeAmount(challenges[_challengeId].totalAmount * 1000000000);
+        (challenges[_challengeId].totalAmount * 1000000000).unstakingChallengeAmount();
 
         challenges[_challengeId].completed = true;
         emit ChallengeCompleted(_challengeId);
     }
+
 
 }

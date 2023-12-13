@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/gray/Desktop/Korea Univ./2023학년도_2학기/Smart Contract/ToyProject/contracts/ChallengeContract.sol": {
-      "lastModificationDate": 1702478975557,
-      "contentHash": "ac60eaa63f2839075848b29f0ec3fdc7",
+      "lastModificationDate": 1702480073282,
+      "contentHash": "4b8046f4061b2ec914a3e6ca1576dcd1",
       "sourceName": "contracts/ChallengeContract.sol",
       "solcConfig": {
         "version": "0.8.19",
@@ -29,7 +29,8 @@
         }
       },
       "imports": [
-        "./TimestampConversion.sol"
+        "./TimestampConversion.sol",
+        "./StakingLibrary.sol"
       ],
       "versionPragmas": [
         "^0.8.0"
@@ -40,8 +41,8 @@
       ]
     },
     "/Users/gray/Desktop/Korea Univ./2023학년도_2학기/Smart Contract/ToyProject/contracts/TimestampConversion.sol": {
-      "lastModificationDate": 1702478933132,
-      "contentHash": "b148c32c7fffff22e75cabd7e1ce24f7",
+      "lastModificationDate": 1702479777524,
+      "contentHash": "5cb8d5ec9fabe3dc31bee09fc3555d8f",
       "sourceName": "contracts/TimestampConversion.sol",
       "solcConfig": {
         "version": "0.8.19",
@@ -72,6 +73,41 @@
       ],
       "artifacts": [
         "TimestampConversion"
+      ]
+    },
+    "/Users/gray/Desktop/Korea Univ./2023학년도_2학기/Smart Contract/ToyProject/contracts/StakingLibrary.sol": {
+      "lastModificationDate": 1702479941453,
+      "contentHash": "adfc5e69d04cdadae0e880bbdc94ed5e",
+      "sourceName": "contracts/StakingLibrary.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "StakingLibrary"
       ]
     }
   }
