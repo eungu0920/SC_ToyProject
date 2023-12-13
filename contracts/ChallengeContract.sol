@@ -170,8 +170,13 @@ contract ChallengeContract {
     /**
      * @notice 챌린지 신청 마감, reward 스테이킹
      */
-    function startChallenge() public {
-        
+    function startChallenge(uint _challengeId) public {
+        (uint appYear, uint appMonth, uint appDay,,) = challenges[_challengeId].applicationDeadline.timestampToDate();
+        (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();
+
+        require(crrYear > appYear || crrMonth > appMonth || crrDay > appDay || crrHour > 21, "The application period has expired."); // 신청기간 마감 이후 실행
+
+        stakingChallengeAmount(challenges[_challengeId].totalAmount);
     }
 
 
@@ -274,6 +279,14 @@ contract ChallengeContract {
         emit ChallengeRewardClaimed(_challengeId, msg.sender);
     }
 
+
+    /**
+     * @notice 챌린지가 끝날 때, unstaking 신청을 한 후, 기간이 지난 후에 unstaking 신청한 물량을 받아옴.
+     */
+    function withdrawalReward(uint _challengeId) public {
+        withdrawal(challenges[_challengeId].totalAmount);
+    }
+
     /**
      * @notice 챌린지는 오후 9시에 마감
      */
@@ -293,8 +306,10 @@ contract ChallengeContract {
         챌린지가 7일동안 진행된 경우 7일을 모두 체크한 사람이 winners list에 들어감.
         for문 두 번 반복할 필요 없이 한번만 사용하고 챌린지를 모두 참여 완료한 사람만 상금을 분배하는 방식으로 진행.
         즉 하루만 실패해도 상금이 날라감(아니면 리워드 분배방식을 달성 퍼센트별로 설정해야하는데 이거는 지금하기 어려울 것이라고 생각됨)
-        => close 될 때, winners를 뽑는게 아닌 매번 체크해서 
+        => close 될 때, winners를 뽑는게 아닌 매번 체크
         */
+
+        unstakingChallengeAmount(challenges[_challengeId].totalAmount * 1000000000);
 
         challenges[_challengeId].completed = true;
         emit ChallengeCompleted(_challengeId);
