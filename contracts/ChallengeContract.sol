@@ -22,12 +22,12 @@ contract ChallengeContract {
     using StakingLibrary for uint256;
     using TimestampConversion for uint;
 
-
     ERC20 public token;
 
     constructor(address _tokenAddress) {
         token = ERC20(_tokenAddress);
     }
+
     /**
      * @notice Challenge 구조체
      * @param totalAmount 참가자 수 * entryAmount          
@@ -89,6 +89,11 @@ contract ChallengeContract {
         _;
     }
 
+    modifier creator(uint _challengeId) {
+        require(challenges[_challengeId].creator == msg.sender, "Only the challenge creator can close it");
+        _;
+    }
+
     /**
      * @notice 챌린지 이름과 챌린지 기간, 참가비용을 매개변수로 받음
      */
@@ -116,7 +121,7 @@ contract ChallengeContract {
     }
 
     /**
-     * @notice
+     * @notice 챌린지를 종료하는 함수
      */
     function automaticallyCloseChallenge(uint _challengeId) public {
         require(block.timestamp >= challenges[_challengeId].applicationDeadline + challenges[_challengeId].duration, "Challenge duration not over yet");
@@ -134,7 +139,6 @@ contract ChallengeContract {
 
         challenges[_challengeId].totalAmount.stakingChallengeAmount();
     }
-
 
     /**
      * @notice 참가신청기간은 만들어진 다음날 오후 9시까지.
@@ -238,16 +242,16 @@ contract ChallengeContract {
     /**
      * @notice 챌린지가 끝날 때, unstaking 신청을 한 후, 기간이 지난 후에 unstaking 신청한 물량을 받아옴.
      */
-    function withdrawalReward(uint _challengeId) public {
+    function withdrawalReward(uint _challengeId) public creator(_challengeId) {
+        require(challenges[_challengeId].completed, "challenge isn't completed");
+
         challenges[_challengeId].totalAmount.withdrawal();
     }
 
     /**
      * @notice 챌린지는 오후 9시에 마감
      */
-    function _closeChallenge(uint _challengeId) internal validChallengeIdWithCompleted(_challengeId) {
-        require(challenges[_challengeId].creator == msg.sender, "Only the challenge creator can close it");        
-
+    function _closeChallenge(uint _challengeId) public validChallengeIdWithCompleted(_challengeId) creator(_challengeId) {
         uint closeTime = challenges[_challengeId].applicationDeadline + challenges[_challengeId].duration;
 
         (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();        
@@ -269,6 +273,4 @@ contract ChallengeContract {
         challenges[_challengeId].completed = true;
         emit ChallengeCompleted(_challengeId);
     }
-
-
 }
