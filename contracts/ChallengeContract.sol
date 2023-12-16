@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "./ChallengeStorage.sol";
 import "./TimestampConversion.sol";
 import "./StakingLibrary.sol";
+import "./IERC20.sol";
 
 /**
  * @title A Challenge Dapp for people
@@ -10,64 +12,16 @@ import "./StakingLibrary.sol";
  * @notice Implement functionality for registering challenges, verifying participants, and distributing rewards.
  * @dev This contract is not exactly complete yet. don't use this
  */
-
- interface ERC20 {
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function transfer(address recipient, uint256 amount) external returns (bool);
-    function balanceOf(address account) external view returns (uint256);
-}
-
-contract ChallengeContract {
+contract ChallengeContract is ChallengeStorage {
     using StakingLibrary for uint256;
     using TimestampConversion for uint;
 
-    ERC20 public token;
+    address public admin;
+    IERC20 public token;
 
     constructor(address _tokenAddress) {
-        token = ERC20(_tokenAddress);
-    }
-
-    /**
-     * @notice Challenge 구조체
-     * @param totalAmount 참가자 수 * entryAmount          
-     * @param completed Challenge가 끝났는지 확인하는 변수
-     * @param applicationDeadline 참가 신청기간이며 Challenge가 생성되고 난 후, 다음날 오후 9시까지 신청이 가능함.
-     * @param numOfWakeUpCheckToWin Challenge에서 이기기 위한 달성 횟수
-     * @param numOfWinners Challenge의 전체 winner 수, Challenge의 마지막 날 numOfWakeUpCheckToWin와 비교하여 갱신
-     * @param check 지갑주소 별 미션체크 변수
-     * @param lastCheck 마지막으로 아침 미션을 달성한 시간
-     * @param claimed 상금을 클레임 하였는지 확인하기 위한 변수
-     */
-    struct Challenge {
-        address creator;
-        string challengeName;
-        uint entryAmount;
-        uint totalAmount;
-        uint creationTime;
-        uint applicationDeadline;
-        uint duration;
-        bool completed;
-        uint numOfWakeUpCheckToWin;
-        uint numOfWinners;
-        
-        mapping(address => uint) check;
-        mapping(address => uint) lastCheck;
-        mapping(address => bool) participate;
-        mapping(address => bool) claimed;
-    }
-
-    /**
-     * @notice 현재 진행중인 Challenge를 보여주기 위한 구조체
-     * @param id 
-     */
-    struct OngoingChallenge {
-        uint id;
-        string challengeName;
-        uint entryAmount;
-        uint currentTotalAmount;
-        uint[4] appDeadline; // year, month, day, hour
-        uint[4] dueDate; // same as above
+        token = IERC20(_tokenAddress);
+        admin = msg.sender;
     }
 
     Challenge[] public challenges;
@@ -77,6 +31,11 @@ contract ChallengeContract {
     event ChallengeCompleted(uint challengeId);
     event ChallengeClosureScheduled(uint challengeId, uint closureDate);
     event ChallengeRewardClaimed(uint challengeId, address participant);
+
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Only the admin can call this function.");
+        _;
+    }
 
     modifier validChallengeIdWithCompleted(uint _challengeId) {
         require(_challengeId < challenges.length, "Invalid challenge ID");
@@ -95,6 +54,44 @@ contract ChallengeContract {
     }
 
     /**
+     * @notice 챌린지를 시작하는 함수
+     */
+    function runChallenge(uint _challengeId) external onlyAdmin {
+        (uint appYear, uint appMonth, uint appDay,,) = challenges[_challengeId].applicationDeadline.timestampToDate();
+        (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();
+
+        // 신청기간 마감 이후 실행
+        require(crrYear > appYear || crrMonth > appMonth || crrDay > appDay || crrHour > 21, "The application period has expired.");
+
+        challenges[_challengeId].totalAmount.stakingChallengeAmount();
+    }
+
+    /**
+     * @notice 챌린지를 종료하는 함수
+     */
+    function closeChallenge(uint _challengeId) external onlyAdmin {
+        require(block.timestamp >= challenges[_challengeId].applicationDeadline + challenges[_challengeId].duration, "Challenge duration not over yet");
+        _closeChallenge(_challengeId);
+    }
+
+    /**
+     * @notice 챌린지가 끝날 때, unstaking 신청을 한 후, 기간이 지난 후에 unstaking 신청한 물량을 받아옴.
+     */
+    function withdrawalReward(uint _challengeId) external {
+        require(challenges[_challengeId].completed, "challenge isn't completed");
+
+        challenges[_challengeId].totalAmount.withdrawal();
+    }
+
+    /**
+     * @notice 챌린지에 쓰이는 토큰 주소를 변경하는 함수
+     */
+    function setTokenAddress(address _newTokenAddress) public onlyAdmin {
+        require(_newTokenAddress != address(0), "Invalid address.");
+        token = IERC20(_newTokenAddress);
+    }
+
+    /**
      * @notice 챌린지 이름과 챌린지 기간, 참가비용을 매개변수로 받음
      */
     function createChallenge(string memory _challengeName, uint _duration, uint _entryAmount) public {
@@ -109,10 +106,12 @@ contract ChallengeContract {
         newChallenge.entryAmount = _entryAmount;
         newChallenge.totalAmount += _entryAmount;
         newChallenge.creationTime = block.timestamp;
-        newChallenge.applicationDeadline = block.timestamp + 1 days; // 참가기간은 다음날 오후 9시 전까지
+        // 참가기간은 다음날 오후 9시 전까지
+        newChallenge.applicationDeadline = block.timestamp + 1 days;
         newChallenge.duration = _duration;
         newChallenge.completed = false;
-        newChallenge.numOfWakeUpCheckToWin = _duration / 86400; // 예(1일 : 86400초 진행 => winner list에 들기 위한 횟수 : 1번)
+        // 예(1일 : 86400초 진행 => winner list에 들기 위한 횟수 : 1번)
+        newChallenge.numOfWakeUpCheckToWin = _duration / 86400;
         newChallenge.participate[msg.sender] = true;
 
         uint challengeId = challenges.length - 1;
@@ -121,23 +120,10 @@ contract ChallengeContract {
     }
 
     /**
-     * @notice 챌린지를 종료하는 함수
-     */
-    function automaticallyCloseChallenge(uint _challengeId) public {
-        require(block.timestamp >= challenges[_challengeId].applicationDeadline + challenges[_challengeId].duration, "Challenge duration not over yet");
-        _closeChallenge(_challengeId);
-    }
-
-    /**
-     * @notice 챌린지 신청 마감, reward 스테이킹
+     * @notice 챌린지 신청 마감, reward 스테이킹, 신청 마감시간에 웹에서 자동으로 호출 해줘야함(?)
      */
     function startChallenge(uint _challengeId) public {
-        (uint appYear, uint appMonth, uint appDay,,) = challenges[_challengeId].applicationDeadline.timestampToDate();
-        (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();
-
-        require(crrYear > appYear || crrMonth > appMonth || crrDay > appDay || crrHour > 21, "The application period has expired."); // 신청기간 마감 이후 실행
-
-        challenges[_challengeId].totalAmount.stakingChallengeAmount();
+        
     }
 
     /**
@@ -147,7 +133,8 @@ contract ChallengeContract {
         (uint appYear, uint appMonth, uint appDay,,) = challenges[_challengeId].applicationDeadline.timestampToDate();
         (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();
 
-        require(crrYear < appYear || crrMonth < appMonth || crrDay < appDay || crrHour < 21, "The application period has expired."); // 오후 21시 전 이면 신청 가능
+        // 오후 21시 전 이면 신청 가능
+        require(crrYear < appYear || crrMonth < appMonth || crrDay < appDay || crrHour < 21, "The application period has expired.");
         require(!challenges[_challengeId].participate[msg.sender], "You've already joined.");
         require(token.balanceOf(msg.sender) >= challenges[_challengeId].entryAmount, "Insufficient entry amount");
 
@@ -168,6 +155,7 @@ contract ChallengeContract {
 
     /**
      * @notice 현재 진행중인 챌린지만 반환하는 함수이며, 참가 신청이 가능한 챌린지만 반환하는 방식으로 수정할 예정
+     * @return 현재 진행중인 챌린지배열 반환
      */
     function getCurrentChallenges() public view returns (OngoingChallenge[] memory) {
         uint ongoingCount = 0;
@@ -240,18 +228,9 @@ contract ChallengeContract {
     }
 
     /**
-     * @notice 챌린지가 끝날 때, unstaking 신청을 한 후, 기간이 지난 후에 unstaking 신청한 물량을 받아옴.
-     */
-    function withdrawalReward(uint _challengeId) public creator(_challengeId) {
-        require(challenges[_challengeId].completed, "challenge isn't completed");
-
-        challenges[_challengeId].totalAmount.withdrawal();
-    }
-
-    /**
      * @notice 챌린지는 오후 9시에 마감
      */
-    function _closeChallenge(uint _challengeId) public validChallengeIdWithCompleted(_challengeId) creator(_challengeId) {
+    function _closeChallenge(uint _challengeId) internal validChallengeIdWithCompleted(_challengeId) onlyAdmin {
         uint closeTime = challenges[_challengeId].applicationDeadline + challenges[_challengeId].duration;
 
         (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();        
@@ -260,14 +239,7 @@ contract ChallengeContract {
         // 챌린지가 안끝났을 때.
         require(crrYear > closeYear || crrMonth > closeMonth || crrDay > closeDay || crrHour >= 21, "Challenge duration not over yet.");
 
-        /*
-        챌린지가 끝나고 winner를 뽑을 때,
-        챌린지가 7일동안 진행된 경우 7일을 모두 체크한 사람이 winners list에 들어감.
-        for문 두 번 반복할 필요 없이 한번만 사용하고 챌린지를 모두 참여 완료한 사람만 상금을 분배하는 방식으로 진행.
-        즉 하루만 실패해도 상금이 날라감(아니면 리워드 분배방식을 달성 퍼센트별로 설정해야하는데 이거는 지금하기 어려울 것이라고 생각됨)
-        => close 될 때, winners를 뽑는게 아닌 매번 체크
-        */
-
+        // 톤 언스테이킹
         (challenges[_challengeId].totalAmount * 1000000000).unstakingChallengeAmount();
 
         challenges[_challengeId].completed = true;
