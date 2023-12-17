@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 /**
  * @title TON 스테이킹과 관련된 함수를 사용하는 라이브러리 입니다.

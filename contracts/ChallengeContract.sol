@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "./ChallengeStorage.sol";
 import "./TimestampConversion.sol";
@@ -103,7 +103,7 @@ contract ChallengeContract is ChallengeStorage {
      */
     function createChallenge(string memory _challengeName, uint _duration, uint _entryAmount) public {
         require(_entryAmount > 0, "Entry amount should be greater than 0");
-        require(token.approve(address(this), _entryAmount), "Failed to approve tokens for transfer");
+        require(token.allowance(msg.sender, address(this)) >= _entryAmount, "Not enough token allowance");
         require(token.transferFrom(msg.sender, address(this), _entryAmount), "Failed to transfer tokens");
 
         challenges.push();
@@ -139,7 +139,7 @@ contract ChallengeContract is ChallengeStorage {
         require(!challenges[_challengeId].participate[msg.sender], "You've already joined.");
         require(token.balanceOf(msg.sender) >= challenges[_challengeId].entryAmount, "Insufficient entry amount");
 
-        require(token.approve(address(this), challenges[_challengeId].entryAmount), "Failed to approve tokens for transfer");
+        require(token.allowance(msg.sender, address(this)) >= challenges[_challengeId].entryAmount, "Not enough token allowance");
         require(token.transferFrom(msg.sender, address(this), challenges[_challengeId].entryAmount), "Failed to transfer tokens");
 
         emit ChallengeJoined(_challengeId, msg.sender);
