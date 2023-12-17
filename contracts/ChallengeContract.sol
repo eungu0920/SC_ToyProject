@@ -37,6 +37,12 @@ contract ChallengeContract is ChallengeStorage {
         _;
     }
 
+    modifier validChallengeIdWithApplication(uint _challengeId) {
+        require(_challengeId < challenges.length, "Invalid challenge ID");
+        require(challenges[_challengeId].canApplication, "The application period has expired.");
+        _;
+    }
+
     modifier validChallengeIdWithCompleted(uint _challengeId) {
         require(_challengeId < challenges.length, "Invalid challenge ID");
         require(!challenges[_challengeId].completed, "Challenge already completed");    
@@ -63,6 +69,7 @@ contract ChallengeContract is ChallengeStorage {
         // 신청기간 마감 이후 실행
         require(crrYear > appYear || crrMonth > appMonth || crrDay > appDay || crrHour > 21, "The application period has expired.");
 
+        challenges[_challengeId].canApplication = false;
         challenges[_challengeId].totalAmount.stakingChallengeAmount();
     }
 
@@ -109,6 +116,7 @@ contract ChallengeContract is ChallengeStorage {
         // 참가기간은 다음날 오후 9시 전까지
         newChallenge.applicationDeadline = block.timestamp + 1 days;
         newChallenge.duration = _duration;
+        newChallenge.canApplication = true;
         newChallenge.completed = false;
         // 예(1일 : 86400초 진행 => winner list에 들기 위한 횟수 : 1번)
         newChallenge.numOfWakeUpCheckToWin = _duration / 86400;
@@ -117,13 +125,6 @@ contract ChallengeContract is ChallengeStorage {
         uint challengeId = challenges.length - 1;
         emit ChallengeCreated(challengeId, _challengeName, _entryAmount, msg.sender);
         emit ChallengeClosureScheduled(challengeId, newChallenge.applicationDeadline + _duration);
-    }
-
-    /**
-     * @notice 챌린지 신청 마감, reward 스테이킹, 신청 마감시간에 웹에서 자동으로 호출 해줘야함(?)
-     */
-    function startChallenge(uint _challengeId) public {
-        
     }
 
     /**
@@ -192,7 +193,7 @@ contract ChallengeContract is ChallengeStorage {
 
     /**
      * @notice 기상 체크하는 함수 (6AM ~ 6:05AM)
-     * @custom:todo 자동으로 실행 시킬 수 있기 때문에 다른 방식으로 변경해야함
+     * @custom:todo 자동으로 실행 시킬 수 있기 때문에 오프체인에서 처리하는 다른 방식으로 변경해야함
      */
     function wakeUpCheck(uint _challengeId) public validChallengeIdWithCompleted(_challengeId) {
         require(challenges[_challengeId].participate[msg.sender], "You're not a participant of this challenge.");
@@ -230,7 +231,7 @@ contract ChallengeContract is ChallengeStorage {
     /**
      * @notice 챌린지는 오후 9시에 마감
      */
-    function _closeChallenge(uint _challengeId) internal validChallengeIdWithCompleted(_challengeId) onlyAdmin {
+    function _closeChallenge(uint _challengeId) internal validChallengeIdWithCompleted(_challengeId) {
         uint closeTime = challenges[_challengeId].applicationDeadline + challenges[_challengeId].duration;
 
         (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();        

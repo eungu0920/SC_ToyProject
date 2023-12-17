@@ -22,6 +22,7 @@ contract ChallengeStorage {
         uint creationTime;
         uint applicationDeadline;
         uint duration;
+        bool canApplication;
         bool completed;
         uint numOfWakeUpCheckToWin;
         uint numOfWinners;
