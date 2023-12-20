@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "./IERC20.sol";
+
 /// @title 챌린지 storage
 contract ChallengeStorage {
+    address public admin;
+    IERC20 public token;
+
+    Challenge[] public challenges;
+
     /**
      * @notice Challenge 구조체
      * @param totalAmount 참가자 수 * entryAmount          
@@ -31,6 +38,7 @@ contract ChallengeStorage {
         mapping(address => uint) lastCheck;
         mapping(address => bool) participate;
         mapping(address => bool) claimed;
+        // mapping 분리
     }
 
     /**

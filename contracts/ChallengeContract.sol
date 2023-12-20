@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import "./ChallengeStorage.sol";
 import "./TimestampConversion.sol";
 import "./StakingLibrary.sol";
-import "./IERC20.sol";
 
 /**
  * @title A Challenge Dapp for people
@@ -16,15 +15,10 @@ contract ChallengeContract is ChallengeStorage {
     using StakingLibrary for uint256;
     using TimestampConversion for uint;
 
-    address public admin;
-    IERC20 public token;
-
     constructor(address _tokenAddress) {
         token = IERC20(_tokenAddress);
         admin = msg.sender;
     }
-
-    Challenge[] public challenges;
 
     event ChallengeCreated(uint challengeId, string challengeName, uint entryAmount, address creator);
     event ChallengeJoined(uint challengeId, address participant);
