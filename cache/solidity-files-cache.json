@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/gray/Desktop/Korea Univ./2023학년도_2학기/Smart Contract/ToyProject/contracts/ChallengeContract.sol": {
-      "lastModificationDate": 1702839614482,
-      "contentHash": "8f237fc92d6d846d70584104002cac21",
+      "lastModificationDate": 1703109428902,
+      "contentHash": "d839262b04f9b019207c01b12a678ba1",
       "sourceName": "contracts/ChallengeContract.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -32,19 +32,18 @@
       "imports": [
         "./ChallengeStorage.sol",
         "./TimestampConversion.sol",
-        "./StakingLibrary.sol",
-        "./IERC20.sol"
+        "./StakingLibrary.sol"
       ],
       "versionPragmas": [
-        "^0.8.20"
+        "^0.8.19"
       ],
       "artifacts": [
         "ChallengeContract"
       ]
     },
     "/Users/gray/Desktop/Korea Univ./2023학년도_2학기/Smart Contract/ToyProject/contracts/TimestampConversion.sol": {
-      "lastModificationDate": 1702838668230,
-      "contentHash": "3420cf1259f73c187550b79fb13db8e1",
+      "lastModificationDate": 1703103323230,
+      "contentHash": "46ea42d271e060671f69bdc5199a589c",
       "sourceName": "contracts/TimestampConversion.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -72,15 +71,15 @@
       },
       "imports": [],
       "versionPragmas": [
-        "^0.8.20"
+        "^0.8.19"
       ],
       "artifacts": [
         "TimestampConversion"
       ]
     },
     "/Users/gray/Desktop/Korea Univ./2023학년도_2학기/Smart Contract/ToyProject/contracts/StakingLibrary.sol": {
-      "lastModificationDate": 1702838665867,
-      "contentHash": "d2e32a891cd5ae4c049f148aa876bc52",
+      "lastModificationDate": 1703103317081,
+      "contentHash": "d6ad68ad6bcc10975be5cadb15a77792",
       "sourceName": "contracts/StakingLibrary.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -108,15 +107,15 @@
       },
       "imports": [],
       "versionPragmas": [
-        "^0.8.20"
+        "^0.8.19"
       ],
       "artifacts": [
         "StakingLibrary"
       ]
     },
     "/Users/gray/Desktop/Korea Univ./2023학년도_2학기/Smart Contract/ToyProject/contracts/ChallengeStorage.sol": {
-      "lastModificationDate": 1702838658542,
-      "contentHash": "553c6edf4ab438ae2e1ee39db5b943c5",
+      "lastModificationDate": 1703109412991,
+      "contentHash": "7f5d6bd6a06271e455256ae2c0ef9117",
       "sourceName": "contracts/ChallengeStorage.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -142,17 +141,19 @@
           }
         }
       },
-      "imports": [],
+      "imports": [
+        "./IERC20.sol"
+      ],
       "versionPragmas": [
-        "^0.8.20"
+        "^0.8.19"
       ],
       "artifacts": [
         "ChallengeStorage"
       ]
     },
     "/Users/gray/Desktop/Korea Univ./2023학년도_2학기/Smart Contract/ToyProject/contracts/IERC20.sol": {
-      "lastModificationDate": 1702839709835,
-      "contentHash": "85c39b4e124eb7fe07737c6282e3b08a",
+      "lastModificationDate": 1703103307719,
+      "contentHash": "24bc93eea35189ac0b4650aa3cad61e6",
       "sourceName": "contracts/IERC20.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -180,7 +181,7 @@
       },
       "imports": [],
       "versionPragmas": [
-        "^0.8.20"
+        "^0.8.19"
       ],
       "artifacts": [
         "IERC20"

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 import "./ChallengeStorage.sol";
 import "./TimestampConversion.sol";
@@ -20,6 +20,11 @@ contract ChallengeContract is ChallengeStorage {
         admin = msg.sender;
     }
 
+    mapping(uint => mapping(address => uint)) public check;
+    mapping(uint => mapping(address => uint)) public lastCheck;
+    mapping(uint => mapping(address => bool)) public participate;
+    mapping(uint => mapping(address => bool)) public claimed;
+    
     event ChallengeCreated(uint challengeId, string challengeName, uint entryAmount, address creator);
     event ChallengeJoined(uint challengeId, address participant);
     event ChallengeCompleted(uint challengeId);
@@ -48,9 +53,12 @@ contract ChallengeContract is ChallengeStorage {
         _;
     }
 
-    modifier creator(uint _challengeId) {
-        require(challenges[_challengeId].creator == msg.sender, "Only the challenge creator can close it");
-        _;
+    /**
+     * @notice set a new admin
+     * @param _newAdmin address of new admin
+     */
+    function setAdmin(address _newAdmin)  public onlyAdmin {
+        admin = _newAdmin;
     }
 
     /**
@@ -97,26 +105,33 @@ contract ChallengeContract is ChallengeStorage {
      */
     function createChallenge(string memory _challengeName, uint _duration, uint _entryAmount) public {
         require(_entryAmount > 0, "Entry amount should be greater than 0");
+        require(_duration >= 86400, "The duration must be at least 1 day.");
         require(token.allowance(msg.sender, address(this)) >= _entryAmount, "Not enough token allowance");
         require(token.transferFrom(msg.sender, address(this), _entryAmount), "Failed to transfer tokens");
 
-        challenges.push();
-        Challenge storage newChallenge = challenges[challenges.length - 1];
-        newChallenge.creator = msg.sender;
-        newChallenge.challengeName = _challengeName;
-        newChallenge.entryAmount = _entryAmount;
-        newChallenge.totalAmount += _entryAmount;
-        newChallenge.creationTime = block.timestamp;
-        // 참가기간은 다음날 오후 9시 전까지
-        newChallenge.applicationDeadline = block.timestamp + 1 days;
-        newChallenge.duration = _duration;
-        newChallenge.canApplication = true;
-        newChallenge.completed = false;
-        // 예(1일 : 86400초 진행 => winner list에 들기 위한 횟수 : 1번)
-        newChallenge.numOfWakeUpCheckToWin = _duration / 86400;
-        newChallenge.participate[msg.sender] = true;
+        uint todaySecond = block.timestamp % 86400;
+        uint remainToday = 86400 - todaySecond;
+        uint tomorrowNineth = 75600;
 
-        uint challengeId = challenges.length - 1;
+        Challenge memory newChallenge = Challenge({
+            creator : msg.sender,
+            challengeName : _challengeName,
+            entryAmount : _entryAmount,
+            totalAmount : _entryAmount,
+            creationTime : block.timestamp,
+            applicationDeadline : block.timestamp + remainToday + tomorrowNineth,
+            duration : _duration,
+            canApplication : true,
+            completed : false,
+            numOfWakeUpCheckToWin : _duration / 86400,
+            numOfWinners : 0
+        });
+
+        uint challengeId = challenges.length;
+        challenges.push(newChallenge);
+
+        participate[challengeId][msg.sender] = true;
+
         emit ChallengeCreated(challengeId, _challengeName, _entryAmount, msg.sender);
         emit ChallengeClosureScheduled(challengeId, newChallenge.applicationDeadline + _duration);
     }
@@ -130,14 +145,14 @@ contract ChallengeContract is ChallengeStorage {
 
         // 오후 21시 전 이면 신청 가능
         require(crrYear < appYear || crrMonth < appMonth || crrDay < appDay || crrHour < 21, "The application period has expired.");
-        require(!challenges[_challengeId].participate[msg.sender], "You've already joined.");
+        require(!participate[_challengeId][msg.sender], "You've already joined.");
         require(token.balanceOf(msg.sender) >= challenges[_challengeId].entryAmount, "Insufficient entry amount");
 
         require(token.allowance(msg.sender, address(this)) >= challenges[_challengeId].entryAmount, "Not enough token allowance");
         require(token.transferFrom(msg.sender, address(this), challenges[_challengeId].entryAmount), "Failed to transfer tokens");
 
         emit ChallengeJoined(_challengeId, msg.sender);
-        challenges[_challengeId].participate[msg.sender] = true;
+        participate[_challengeId][msg.sender] = true;
         challenges[_challengeId].totalAmount += challenges[_challengeId].entryAmount;
     }
 
@@ -190,17 +205,17 @@ contract ChallengeContract is ChallengeStorage {
      * @custom:todo 자동으로 실행 시킬 수 있기 때문에 오프체인에서 처리하는 다른 방식으로 변경해야함
      */
     function wakeUpCheck(uint _challengeId) public validChallengeIdWithCompleted(_challengeId) {
-        require(challenges[_challengeId].participate[msg.sender], "You're not a participant of this challenge.");
-        (uint lastYear, uint lastMonth, uint lastDay,,) = challenges[_challengeId].lastCheck[msg.sender].timestampToDate();
+        require(participate[_challengeId][msg.sender], "You're not a participant of this challenge.");
+        (uint lastYear, uint lastMonth, uint lastDay,,) = lastCheck[_challengeId][msg.sender].timestampToDate();
         (uint currentYear, uint currentMonth, uint currentDay, uint currentHour, uint currentMinute) = block.timestamp.timestampToDate();
 
         require(currentYear > lastYear || currentMonth > lastMonth || currentDay > lastDay, "You've already checked today.");
         require(currentHour == 6 && currentMinute <= 5, "You've failed today's mission.");
 
-        challenges[_challengeId].check[msg.sender]++;
-        challenges[_challengeId].lastCheck[msg.sender] = block.timestamp;
+        check[_challengeId][msg.sender]++;
+        lastCheck[_challengeId][msg.sender] = block.timestamp;
 
-        if(challenges[_challengeId].check[msg.sender] == challenges[_challengeId].numOfWakeUpCheckToWin) {
+        if(check[_challengeId][msg.sender] == challenges[_challengeId].numOfWakeUpCheckToWin) {
             challenges[_challengeId].numOfWinners++;
         }
     }
@@ -210,14 +225,14 @@ contract ChallengeContract is ChallengeStorage {
      */
     function claimRewards(uint _challengeId) public validChallengeId(_challengeId) {
         require(challenges[_challengeId].completed, "Challenge isn't completed yet.");
-        require(challenges[_challengeId].participate[msg.sender], "You're not a participant of this challenge.");
-        require(!challenges[_challengeId].claimed[msg.sender], "Already claimed");
-        require(challenges[_challengeId].check[msg.sender] == challenges[_challengeId].numOfWakeUpCheckToWin, "You didn't win this challenge.");
+        require(participate[_challengeId][msg.sender], "You're not a participant of this challenge.");
+        require(!claimed[_challengeId][msg.sender], "Already claimed");
+        require(check[_challengeId][msg.sender] == challenges[_challengeId].numOfWakeUpCheckToWin, "You didn't win this challenge.");
 
         uint distributeRewards = challenges[_challengeId].totalAmount / challenges[_challengeId].numOfWinners;
 
         require(token.transfer(msg.sender, distributeRewards), "Reward claim failed.");
-        challenges[_challengeId].claimed[msg.sender] = true;
+        claimed[_challengeId][msg.sender] = true;
 
         emit ChallengeRewardClaimed(_challengeId, msg.sender);
     }

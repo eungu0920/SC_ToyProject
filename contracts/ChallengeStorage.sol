@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
 import "./IERC20.sol";
 
@@ -24,21 +24,22 @@ contract ChallengeStorage {
     struct Challenge {
         address creator;
         string challengeName;
-        uint entryAmount;
-        uint totalAmount;
-        uint creationTime;
+        uint256 entryAmount;
+        uint256 totalAmount;
+        uint256 creationTime;
         uint applicationDeadline;
         uint duration;
         bool canApplication;
         bool completed;
         uint numOfWakeUpCheckToWin;
         uint numOfWinners;
-        
-        mapping(address => uint) check;
-        mapping(address => uint) lastCheck;
-        mapping(address => bool) participate;
-        mapping(address => bool) claimed;
-        // mapping 분리
+    }
+
+    struct participant {
+        uint check;
+        uint lastCheck;
+        bool participate;
+        bool claimed;
     }
 
     /**
