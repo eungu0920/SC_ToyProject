@@ -27,19 +27,12 @@ contract ChallengeStorage {
         uint256 entryAmount;
         uint256 totalAmount;
         uint256 creationTime;
-        uint applicationDeadline;
-        uint duration;
+        uint256 applicationDeadline;
+        uint32 duration;
         bool canApplication;
         bool completed;
-        uint numOfWakeUpCheckToWin;
-        uint numOfWinners;
-    }
-
-    struct participant {
-        uint check;
-        uint lastCheck;
-        bool participate;
-        bool claimed;
+        uint32 numOfWakeUpCheckToWin;
+        uint32 numOfWinners;
     }
 
     /**
@@ -49,8 +42,8 @@ contract ChallengeStorage {
     struct OngoingChallenge {
         uint id;
         string challengeName;
-        uint entryAmount;
-        uint currentTotalAmount;
+        uint256 entryAmount;
+        uint256 currentTotalAmount;
         // year, month, day, hour
         uint[4] appDeadline;
         // same as above

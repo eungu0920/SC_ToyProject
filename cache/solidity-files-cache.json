@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/gray/Desktop/Korea Univ./2023학년도_2학기/Smart Contract/ToyProject/contracts/ChallengeContract.sol": {
-      "lastModificationDate": 1703109428902,
-      "contentHash": "d839262b04f9b019207c01b12a678ba1",
+      "lastModificationDate": 1703109884919,
+      "contentHash": "4dc31868688607347ad2c869ad4c18cf",
       "sourceName": "contracts/ChallengeContract.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -114,8 +114,8 @@
       ]
     },
     "/Users/gray/Desktop/Korea Univ./2023학년도_2학기/Smart Contract/ToyProject/contracts/ChallengeStorage.sol": {
-      "lastModificationDate": 1703109412991,
-      "contentHash": "7f5d6bd6a06271e455256ae2c0ef9117",
+      "lastModificationDate": 1703109872270,
+      "contentHash": "6c9bafc3ff0b8edd6d8c2a625c59b4c0",
       "sourceName": "contracts/ChallengeStorage.sol",
       "solcConfig": {
         "version": "0.8.20",

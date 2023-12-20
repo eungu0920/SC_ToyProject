@@ -25,7 +25,7 @@ contract ChallengeContract is ChallengeStorage {
     mapping(uint => mapping(address => bool)) public participate;
     mapping(uint => mapping(address => bool)) public claimed;
     
-    event ChallengeCreated(uint challengeId, string challengeName, uint entryAmount, address creator);
+    event ChallengeCreated(uint challengeId, uint32 duration, string challengeName, uint entryAmount, address creator);
     event ChallengeJoined(uint challengeId, address participant);
     event ChallengeCompleted(uint challengeId);
     event ChallengeClosureScheduled(uint challengeId, uint closureDate);
@@ -57,7 +57,7 @@ contract ChallengeContract is ChallengeStorage {
      * @notice set a new admin
      * @param _newAdmin address of new admin
      */
-    function setAdmin(address _newAdmin)  public onlyAdmin {
+    function setAdmin(address _newAdmin) external onlyAdmin {
         admin = _newAdmin;
     }
 
@@ -65,11 +65,8 @@ contract ChallengeContract is ChallengeStorage {
      * @notice 챌린지를 시작하는 함수
      */
     function runChallenge(uint _challengeId) external onlyAdmin {
-        (uint appYear, uint appMonth, uint appDay,,) = challenges[_challengeId].applicationDeadline.timestampToDate();
-        (uint crrYear, uint crrMonth, uint crrDay, uint crrHour,) = block.timestamp.timestampToDate();
-
         // 신청기간 마감 이후 실행
-        require(crrYear > appYear || crrMonth > appMonth || crrDay > appDay || crrHour > 21, "The application period has expired.");
+        require(block.timestamp > challenges[_challengeId].applicationDeadline, "The application period has expired.");
 
         challenges[_challengeId].canApplication = false;
         challenges[_challengeId].totalAmount.stakingChallengeAmount();
@@ -93,17 +90,9 @@ contract ChallengeContract is ChallengeStorage {
     }
 
     /**
-     * @notice 챌린지에 쓰이는 토큰 주소를 변경하는 함수
-     */
-    function setTokenAddress(address _newTokenAddress) public onlyAdmin {
-        require(_newTokenAddress != address(0), "Invalid address.");
-        token = IERC20(_newTokenAddress);
-    }
-
-    /**
      * @notice 챌린지 이름과 챌린지 기간, 참가비용을 매개변수로 받음
      */
-    function createChallenge(string memory _challengeName, uint _duration, uint _entryAmount) public {
+    function createChallenge(string memory _challengeName, uint32 _duration, uint _entryAmount) external {
         require(_entryAmount > 0, "Entry amount should be greater than 0");
         require(_duration >= 86400, "The duration must be at least 1 day.");
         require(token.allowance(msg.sender, address(this)) >= _entryAmount, "Not enough token allowance");
@@ -123,7 +112,7 @@ contract ChallengeContract is ChallengeStorage {
             duration : _duration,
             canApplication : true,
             completed : false,
-            numOfWakeUpCheckToWin : _duration / 86400,
+            numOfWakeUpCheckToWin : _duration / uint32(86400),
             numOfWinners : 0
         });
 
@@ -132,7 +121,7 @@ contract ChallengeContract is ChallengeStorage {
 
         participate[challengeId][msg.sender] = true;
 
-        emit ChallengeCreated(challengeId, _challengeName, _entryAmount, msg.sender);
+        emit ChallengeCreated(challengeId, _duration, _challengeName, _entryAmount, msg.sender);
         emit ChallengeClosureScheduled(challengeId, newChallenge.applicationDeadline + _duration);
     }
 
@@ -154,13 +143,6 @@ contract ChallengeContract is ChallengeStorage {
         emit ChallengeJoined(_challengeId, msg.sender);
         participate[_challengeId][msg.sender] = true;
         challenges[_challengeId].totalAmount += challenges[_challengeId].entryAmount;
-    }
-
-    /**
-     * @notice 현 진행중인 챌린지를 반환하는 함수가 있어서 삭제해도 될 것 같음.
-     */
-    function getChallengeCount() public view returns (uint) {
-        return challenges.length;
     }
 
     /**
@@ -235,6 +217,14 @@ contract ChallengeContract is ChallengeStorage {
         claimed[_challengeId][msg.sender] = true;
 
         emit ChallengeRewardClaimed(_challengeId, msg.sender);
+    }
+
+    /**
+     * @notice 챌린지에 쓰이는 토큰 주소를 변경하는 함수
+     */
+    function setTokenAddress(address _newTokenAddress) public onlyAdmin {
+        require(_newTokenAddress != address(0), "Invalid address.");
+        token = IERC20(_newTokenAddress);
     }
 
     /**
